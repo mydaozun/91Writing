@@ -18,7 +18,18 @@
           </el-card>
         </el-tab-pane>
 
-        
+        <!-- Upstash配置 -->
+        <el-tab-pane label="Upstash配置" name="upstash">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>🗄️ Upstash Redis配置</span>
+              </div>
+            </template>
+            
+            <UpstashConfig />
+          </el-card>
+        </el-tab-pane>
 
         <!-- 数据管理 -->
         <el-tab-pane label="数据管理" name="data">
@@ -335,6 +346,7 @@ import { ref, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
+import UpstashConfig from '@/components/UpstashConfig.vue'
 
 // 响应式数据
 const activeTab = ref('api')
