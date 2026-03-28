@@ -662,6 +662,14 @@ const saveAllDataToUpstash = async () => {
   try {
     ElMessage.info('开始保存数据到Upstash...')
     
+    // 从 Pinia store 获取最新的 API 配置
+    const novelStore = useNovelStore()
+    const apiConfig = {
+      official: novelStore.officialApiConfig,
+      custom: novelStore.customApiConfig,
+      configType: novelStore.currentConfigType
+    }
+    
     // 收集所有数据
     const allData = {
       novels: JSON.parse(localStorage.getItem('novels') || '[]'),
@@ -669,15 +677,15 @@ const saveAllDataToUpstash = async () => {
       novelGenres: JSON.parse(localStorage.getItem('novelGenres') || '[]'),
       writingGoals: JSON.parse(localStorage.getItem('writingGoals') || '[]'),
       settings: {
-        apiConfig: JSON.parse(localStorage.getItem('api-config') || '{}'),
+        apiConfig: apiConfig,
         tokenUsage: JSON.parse(localStorage.getItem('token-usage') || '{}')
       },
       savedAt: new Date().toISOString(),
       version: 'v0.7.0'
     }
     
-    // 保存到Upstash
-    const saved = await upstashService.set('backup:all', allData, 60 * 60 * 24 * 365)
+    // 保存到Upstash（永不过期）
+    const saved = await upstashService.set('backup:all', allData)
     
     if (saved) {
       ElMessage.success('所有数据已成功保存到Upstash')
