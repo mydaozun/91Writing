@@ -77,7 +77,10 @@ class UpstashService {
         body.ex = expiration
       }
       
-      const response = await fetch(`${this.config.url}/set`, {
+      // 确保URL以/redis结尾
+      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
+      
+      const response = await fetch(`${baseUrl}/set`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.token}`,
@@ -87,7 +90,8 @@ class UpstashService {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
       return true
@@ -106,7 +110,10 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(fullKey)}`, {
+      // 确保URL以/redis结尾
+      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
+      
+      const response = await fetch(`${baseUrl}/get/${encodeURIComponent(fullKey)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -114,7 +121,8 @@ class UpstashService {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
       const data = await response.json()
@@ -134,7 +142,10 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      const response = await fetch(`${this.config.url}/del/${encodeURIComponent(fullKey)}`, {
+      // 确保URL以/redis结尾
+      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
+      
+      const response = await fetch(`${baseUrl}/del/${encodeURIComponent(fullKey)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -142,7 +153,8 @@ class UpstashService {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
       return true
@@ -221,7 +233,10 @@ class UpstashService {
 
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
-      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(listKey)}`, {
+      // 确保URL以/redis结尾
+      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
+      
+      const response = await fetch(`${baseUrl}/get/${encodeURIComponent(listKey)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -229,7 +244,8 @@ class UpstashService {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
       const data = await response.json()
@@ -259,7 +275,10 @@ class UpstashService {
 
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
-      const response = await fetch(`${this.config.url}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
+      // 确保URL以/redis结尾
+      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
+      
+      const response = await fetch(`${baseUrl}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -267,7 +286,8 @@ class UpstashService {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
       return true
