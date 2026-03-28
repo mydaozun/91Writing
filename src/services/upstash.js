@@ -15,6 +15,7 @@ class UpstashService {
   loadConfig() {
     try {
       // 优先从环境变量获取配置（Vercel部署时使用）
+      // Vite要求环境变量以VITE_前缀开头才能在客户端访问
       const envUrl = import.meta.env.VITE_UPSTASH_URL
       const envToken = import.meta.env.VITE_UPSTASH_TOKEN
       
@@ -106,11 +107,14 @@ class UpstashService {
     try {
       const fullKey = this.getUserKeyPrefix() + key
       
-      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(fullKey)}`, {
-        method: 'GET',
+      // 使用POST请求发送GET命令（Upstash REST API标准用法）
+      const response = await fetch(this.config.url, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.config.token}`
-        }
+          'Authorization': `Bearer ${this.config.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['GET', fullKey])
       })
       
       if (!response.ok) {
@@ -143,11 +147,14 @@ class UpstashService {
     try {
       const fullKey = this.getUserKeyPrefix() + key
       
-      const response = await fetch(`${this.config.url}/del/${encodeURIComponent(fullKey)}`, {
-        method: 'GET',
+      // 使用POST请求发送DEL命令（Upstash REST API标准用法）
+      const response = await fetch(this.config.url, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.config.token}`
-        }
+          'Authorization': `Bearer ${this.config.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['DEL', fullKey])
       })
       
       if (!response.ok) {
@@ -232,11 +239,14 @@ class UpstashService {
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
       
-      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(listKey)}`, {
-        method: 'GET',
+      // 使用POST请求发送GET命令（Upstash REST API标准用法）
+      const response = await fetch(this.config.url, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.config.token}`
-        }
+          'Authorization': `Bearer ${this.config.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['GET', listKey])
       })
       
       if (!response.ok) {
@@ -245,7 +255,14 @@ class UpstashService {
       }
       
       const data = await response.json()
-      const novelIds = data.result || []
+      let novelIds = []
+      if (data.result) {
+        try {
+          novelIds = JSON.parse(data.result)
+        } catch {
+          novelIds = []
+        }
+      }
       const novels = []
       
       for (const novelId of novelIds) {
@@ -272,16 +289,14 @@ class UpstashService {
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
       
-      const response = await fetch(`${this.config.url}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.config.token}`
-        }
-      })
+      // 先获取当前列表
+      const currentList = await this.get('novels:list') || []
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
+      // 如果小说ID不在列表中，添加它
+      if (!currentList.includes(novelId)) {
+        currentList.push(novelId)
+        // 保存更新后的列表
+        return await this.set('novels:list', currentList, 60 * 60 * 24 * 365)
       }
       
       return true
