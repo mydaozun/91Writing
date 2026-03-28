@@ -94,8 +94,8 @@ export const useNovelStore = defineStore('novel', () => {
       
       // 初始化Upstash配置
       // 优先从环境变量获取（Vercel部署）
-      const envUrl = import.meta.env.UPSTASH_URL
-      const envToken = import.meta.env.UPSTASH_TOKEN
+      const envUrl = import.meta.env.VITE_UPSTASH_URL
+      const envToken = import.meta.env.VITE_UPSTASH_TOKEN
       
       if (envUrl && envToken) {
         console.log('从环境变量加载Upstash配置')
