@@ -80,8 +80,8 @@ const isUpstashConfigured = computed(() => novelStore.isUpstashConfigured)
 
 // 检查是否使用环境变量
 const checkEnvVars = () => {
-  const envUrl = import.meta.env.UPSTASH_URL
-  const envToken = import.meta.env.UPSTASH_TOKEN
+  const envUrl = import.meta.env.VITE_UPSTASH_URL
+  const envToken = import.meta.env.VITE_UPSTASH_TOKEN
   isUsingEnvVars.value = !!envUrl && !!envToken
 }
 
