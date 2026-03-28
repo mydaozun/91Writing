@@ -751,7 +751,16 @@ const loadAllDataFromUpstash = async () => {
       
       if (allData.settings) {
         if (allData.settings.apiConfig) {
-          localStorage.setItem('api-config', JSON.stringify(allData.settings.apiConfig))
+          // 保存到正确的 localStorage 键
+          if (allData.settings.apiConfig.official) {
+            localStorage.setItem('officialApiConfig', JSON.stringify(allData.settings.apiConfig.official))
+          }
+          if (allData.settings.apiConfig.custom) {
+            localStorage.setItem('customApiConfig', JSON.stringify(allData.settings.apiConfig.custom))
+          }
+          if (allData.settings.apiConfig.configType) {
+            localStorage.setItem('apiConfigType', allData.settings.apiConfig.configType)
+          }
           importCount++
           
           // 同时更新 Pinia store 中的 API 配置
