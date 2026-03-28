@@ -80,6 +80,7 @@ const isUpstashConfigured = computed(() => novelStore.isUpstashConfigured)
 
 // 检查是否使用环境变量
 const checkEnvVars = () => {
+  // Vite要求环境变量以VITE_前缀开头才能在客户端访问
   const envUrl = import.meta.env.VITE_UPSTASH_URL
   const envToken = import.meta.env.VITE_UPSTASH_TOKEN
   isUsingEnvVars.value = !!envUrl && !!envToken
