@@ -94,6 +94,7 @@ export const useNovelStore = defineStore('novel', () => {
       
       // 初始化Upstash配置
       // 优先从环境变量获取（Vercel部署）
+      // Vite要求环境变量以VITE_前缀开头才能在客户端访问
       const envUrl = import.meta.env.VITE_UPSTASH_URL
       const envToken = import.meta.env.VITE_UPSTASH_TOKEN
       
