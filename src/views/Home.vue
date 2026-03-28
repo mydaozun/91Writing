@@ -847,7 +847,12 @@ const handleCreated = (editor) => {
 }
 
 onMounted(() => {
-  // 初始化
+  // 阻止自动显示公告
+  if (!localStorage.getItem('lastReadAnnouncementVersion')) {
+    // 标记最新公告为已读
+    const latestAnnouncement = getLatestAnnouncement()
+    localStorage.setItem('lastReadAnnouncementVersion', latestAnnouncement.version)
+  }
 })
 
 onBeforeUnmount(() => {
