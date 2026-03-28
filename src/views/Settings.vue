@@ -678,6 +678,7 @@ const saveAllDataToUpstash = async () => {
       writingGoals: JSON.parse(localStorage.getItem('writingGoals') || '[]'),
       settings: {
         apiConfig: apiConfig,
+        customModels: JSON.parse(localStorage.getItem('customModels') || '[]'),
         tokenUsage: JSON.parse(localStorage.getItem('token-usage') || '{}')
       },
       savedAt: new Date().toISOString(),
@@ -785,6 +786,12 @@ const loadAllDataFromUpstash = async () => {
         }
         if (allData.settings.tokenUsage) {
           localStorage.setItem('token-usage', JSON.stringify(allData.settings.tokenUsage))
+          importCount++
+        }
+        
+        // 恢复自定义模型列表
+        if (allData.settings.customModels) {
+          localStorage.setItem('customModels', JSON.stringify(allData.settings.customModels))
           importCount++
         }
       }
