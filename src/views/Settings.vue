@@ -784,10 +784,7 @@ const loadAllDataFromUpstash = async () => {
       calculateDataStats()
       
       if (importCount > 0) {
-        ElMessage.success(`成功从Upstash恢复 ${importCount} 项数据`)
-        setTimeout(() => {
-          location.reload()
-        }, 1000)
+        ElMessage.success(`成功从Upstash恢复 ${importCount} 项数据，请刷新页面以应用更改`)
       } else {
         ElMessage.warning('未找到匹配的数据进行恢复')
       }
