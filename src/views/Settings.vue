@@ -76,6 +76,10 @@
                     <el-icon><Download /></el-icon>
                     导出所有数据
                   </el-button>
+                  <el-button type="success" @click="saveAllDataToUpstash">
+                    <el-icon><Upload /></el-icon>
+                    保存所有数据
+                  </el-button>
                   <el-button @click="exportNovels">
                     <el-icon><Document /></el-icon>
                     小说数据
@@ -111,6 +115,10 @@
                       选择备份文件
                     </el-button>
                   </el-upload>
+                  <el-button type="primary" @click="loadAllDataFromUpstash">
+                    <el-icon><Download /></el-icon>
+                    读取数据
+                  </el-button>
                   <el-button @click="showImportDialog = true">
                     <el-icon><Setting /></el-icon>
                     导入选项
@@ -347,6 +355,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
 import UpstashConfig from '@/components/UpstashConfig.vue'
+import upstashService from '@/services/upstash.js'
 
 // 响应式数据
 const activeTab = ref('api')
@@ -640,6 +649,124 @@ const clearSettings = () => {
       location.reload()
     }, 1000)
   })
+}
+
+// 保存所有数据到Upstash
+const saveAllDataToUpstash = async () => {
+  if (!upstashService.isConfigured()) {
+    ElMessage.warning('Upstash未配置，请先在Upstash配置页面配置连接信息')
+    return
+  }
+  
+  try {
+    ElMessage.info('开始保存数据到Upstash...')
+    
+    // 收集所有数据
+    const allData = {
+      novels: JSON.parse(localStorage.getItem('novels') || '[]'),
+      prompts: JSON.parse(localStorage.getItem('prompts') || '[]'),
+      novelGenres: JSON.parse(localStorage.getItem('novelGenres') || '[]'),
+      writingGoals: JSON.parse(localStorage.getItem('writingGoals') || '[]'),
+      settings: {
+        apiConfig: JSON.parse(localStorage.getItem('api-config') || '{}'),
+        tokenUsage: JSON.parse(localStorage.getItem('token-usage') || '{}')
+      },
+      savedAt: new Date().toISOString(),
+      version: 'v0.7.0'
+    }
+    
+    // 保存到Upstash
+    const saved = await upstashService.set('backup:all', allData, 60 * 60 * 24 * 365)
+    
+    if (saved) {
+      ElMessage.success('所有数据已成功保存到Upstash')
+    } else {
+      ElMessage.error('保存数据到Upstash失败')
+    }
+  } catch (error) {
+    console.error('保存数据到Upstash失败:', error)
+    ElMessage.error('保存数据到Upstash失败: ' + error.message)
+  }
+}
+
+// 从Upstash读取数据
+const loadAllDataFromUpstash = async () => {
+  if (!upstashService.isConfigured()) {
+    ElMessage.warning('Upstash未配置，请先在Upstash配置页面配置连接信息')
+    return
+  }
+  
+  try {
+    ElMessage.info('开始从Upstash读取数据...')
+    
+    // 从Upstash读取数据
+    const allData = await upstashService.get('backup:all')
+    
+    if (!allData) {
+      ElMessage.warning('未找到Upstash备份数据')
+      return
+    }
+    
+    // 确认是否覆盖现有数据
+    ElMessageBox.confirm(
+      `即将从Upstash恢复数据（备份时间：${allData.savedAt || '未知'}）。这将覆盖现有数据，是否继续？`,
+      '确认恢复',
+      {
+        confirmButtonText: '确定恢复',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(() => {
+      let importCount = 0
+      
+      // 恢复数据
+      if (allData.novels) {
+        localStorage.setItem('novels', JSON.stringify(allData.novels))
+        importCount++
+      }
+      
+      if (allData.prompts) {
+        localStorage.setItem('prompts', JSON.stringify(allData.prompts))
+        importCount++
+      }
+      
+      if (allData.novelGenres) {
+        localStorage.setItem('novelGenres', JSON.stringify(allData.novelGenres))
+        importCount++
+      }
+      
+      if (allData.writingGoals) {
+        localStorage.setItem('writingGoals', JSON.stringify(allData.writingGoals))
+        importCount++
+      }
+      
+      if (allData.settings) {
+        if (allData.settings.apiConfig) {
+          localStorage.setItem('api-config', JSON.stringify(allData.settings.apiConfig))
+          importCount++
+        }
+        if (allData.settings.tokenUsage) {
+          localStorage.setItem('token-usage', JSON.stringify(allData.settings.tokenUsage))
+          importCount++
+        }
+      }
+      
+      // 重新计算数据统计
+      calculateDataStats()
+      
+      if (importCount > 0) {
+        ElMessage.success(`成功从Upstash恢复 ${importCount} 项数据`)
+        setTimeout(() => {
+          location.reload()
+        }, 1000)
+      } else {
+        ElMessage.warning('未找到匹配的数据进行恢复')
+      }
+    })
+  } catch (error) {
+    console.error('从Upstash读取数据失败:', error)
+    ElMessage.error('从Upstash读取数据失败: ' + error.message)
+  }
 }
 
 // 生命周期
