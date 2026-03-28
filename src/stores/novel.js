@@ -405,7 +405,11 @@ export const useNovelStore = defineStore('novel', () => {
       createdAt: new Date().toISOString()
     }
     
-    return await upstashService.saveNovel(novelId, novelData)
+    const saved = await upstashService.saveNovel(novelId, novelData)
+    if (saved) {
+      await upstashService.addNovelToList(novelId)
+    }
+    return saved
   }
   
   // 从Upstash加载小说
