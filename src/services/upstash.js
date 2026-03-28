@@ -15,8 +15,8 @@ class UpstashService {
   loadConfig() {
     try {
       // 优先从环境变量获取配置（Vercel部署时使用）
-      const envUrl = import.meta.env.UPSTASH_URL
-      const envToken = import.meta.env.UPSTASH_TOKEN
+      const envUrl = import.meta.env.VITE_UPSTASH_URL
+      const envToken = import.meta.env.VITE_UPSTASH_TOKEN
       
       if (envUrl && envToken) {
         console.log('从环境变量加载Upstash配置')
