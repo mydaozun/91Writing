@@ -135,7 +135,7 @@
                 <div class="card-header">
                   <span>📖 章节管理</span>
                   <el-button 
-                    type="success" 
+                    输入="success" 
                     size="small" 
                     @click="generateChapterContent"
                     :loading="isGeneratingChapter"
