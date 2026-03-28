@@ -356,6 +356,7 @@ import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection
 import ApiConfig from '@/components/ApiConfig.vue'
 import UpstashConfig from '@/components/UpstashConfig.vue'
 import upstashService from '@/services/upstash.js'
+import { useNovelStore } from '@/stores/novel.js'
 
 // 响应式数据
 const activeTab = ref('api')
@@ -744,6 +745,26 @@ const loadAllDataFromUpstash = async () => {
         if (allData.settings.apiConfig) {
           localStorage.setItem('api-config', JSON.stringify(allData.settings.apiConfig))
           importCount++
+          
+          // 同时更新 Pinia store 中的 API 配置
+          try {
+            const novelStore = useNovelStore()
+            if (allData.settings.apiConfig.official) {
+              novelStore.officialApiConfig = { ...novelStore.officialApiConfig, ...allData.settings.apiConfig.official }
+            }
+            if (allData.settings.apiConfig.custom) {
+              novelStore.customApiConfig = { ...novelStore.customApiConfig, ...allData.settings.apiConfig.custom }
+            }
+            if (allData.settings.apiConfig.configType) {
+              novelStore.currentConfigType = allData.settings.apiConfig.configType
+            }
+            // 更新 API 配置状态
+            const currentConfig = novelStore.getCurrentApiConfig()
+            novelStore.isApiConfigured = !!currentConfig.apiKey
+            console.log('Pinia store API 配置已更新')
+          } catch (storeError) {
+            console.error('更新 Pinia store 失败:', storeError)
+          }
         }
         if (allData.settings.tokenUsage) {
           localStorage.setItem('token-usage', JSON.stringify(allData.settings.tokenUsage))
