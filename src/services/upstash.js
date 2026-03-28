@@ -1,14 +1,9 @@
-import { Redis } from '@upstash/redis'
-
 class UpstashService {
   constructor() {
     // 从localStorage或环境变量获取Upstash配置
     const config = this.loadConfig()
     if (config.url && config.token) {
-      this.redis = new Redis({
-        url: config.url,
-        token: config.token
-      })
+      this.config = config
       this.initialized = true
     } else {
       this.initialized = false
@@ -44,10 +39,7 @@ class UpstashService {
   saveConfig(config) {
     try {
       localStorage.setItem('upstashConfig', JSON.stringify(config))
-      this.redis = new Redis({
-        url: config.url,
-        token: config.token
-      })
+      this.config = config
       this.initialized = true
     } catch (error) {
       console.error('保存Upstash配置失败:', error)
@@ -76,8 +68,28 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      const options = expiration ? { ex: expiration } : {}
-      await this.redis.set(fullKey, value, options)
+      const body = {
+        key: fullKey,
+        value: value
+      }
+      
+      if (expiration) {
+        body.ex = expiration
+      }
+      
+      const response = await fetch(`${this.config.url}/set`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       return true
     } catch (error) {
       console.error('保存数据失败:', error)
@@ -94,7 +106,19 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      return await this.redis.get(fullKey)
+      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(fullKey)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.config.token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return data.result
     } catch (error) {
       console.error('获取数据失败:', error)
       return null
@@ -110,7 +134,17 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      await this.redis.del(fullKey)
+      const response = await fetch(`${this.config.url}/del/${encodeURIComponent(fullKey)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.config.token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       return true
     } catch (error) {
       console.error('删除数据失败:', error)
@@ -186,12 +220,23 @@ class UpstashService {
     }
 
     try {
-      const prefix = this.getUserKeyPrefix() + 'novel:'
-      const keys = await this.redis.keys(prefix + '*')
+      const listKey = this.getUserKeyPrefix() + 'novels:list'
+      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(listKey)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.config.token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const novelIds = data.result || []
       const novels = []
       
-      for (const key of keys) {
-        const novelId = key.replace(prefix, '')
+      for (const novelId of novelIds) {
         const novel = await this.getNovel(novelId)
         if (novel) {
           novels.push({ id: novelId, ...novel })
@@ -202,6 +247,33 @@ class UpstashService {
     } catch (error) {
       console.error('列出小说失败:', error)
       return []
+    }
+  }
+  
+  // 添加小说到列表
+  async addNovelToList(novelId) {
+    if (!this.initialized) {
+      console.warn('Upstash未初始化，无法添加小说到列表')
+      return false
+    }
+
+    try {
+      const listKey = this.getUserKeyPrefix() + 'novels:list'
+      const response = await fetch(`${this.config.url}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      return true
+    } catch (error) {
+      console.error('添加小说到列表失败:', error)
+      return false
     }
   }
 }
