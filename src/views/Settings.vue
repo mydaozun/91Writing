@@ -356,6 +356,7 @@ import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection
 import ApiConfig from '@/components/ApiConfig.vue'
 import UpstashConfig from '@/components/UpstashConfig.vue'
 import upstashService from '@/services/upstash.js'
+import { useNovelStore } from '@/stores/novel.js'
 
 // 响应式数据
 const activeTab = ref('api')
@@ -661,6 +662,14 @@ const saveAllDataToUpstash = async () => {
   try {
     ElMessage.info('开始保存数据到Upstash...')
     
+    // 从 Pinia store 获取最新的 API 配置
+    const novelStore = useNovelStore()
+    const apiConfig = {
+      official: novelStore.officialApiConfig,
+      custom: novelStore.customApiConfig,
+      configType: novelStore.currentConfigType
+    }
+    
     // 收集所有数据
     const allData = {
       novels: JSON.parse(localStorage.getItem('novels') || '[]'),
@@ -668,15 +677,16 @@ const saveAllDataToUpstash = async () => {
       novelGenres: JSON.parse(localStorage.getItem('novelGenres') || '[]'),
       writingGoals: JSON.parse(localStorage.getItem('writingGoals') || '[]'),
       settings: {
-        apiConfig: JSON.parse(localStorage.getItem('api-config') || '{}'),
+        apiConfig: apiConfig,
+        customModels: JSON.parse(localStorage.getItem('customModels') || '[]'),
         tokenUsage: JSON.parse(localStorage.getItem('token-usage') || '{}')
       },
       savedAt: new Date().toISOString(),
       version: 'v0.7.0'
     }
     
-    // 保存到Upstash
-    const saved = await upstashService.set('backup:all', allData, 60 * 60 * 24 * 365)
+    // 保存到Upstash（永不过期）
+    const saved = await upstashService.set('backup:all', allData)
     
     if (saved) {
       ElMessage.success('所有数据已成功保存到Upstash')
@@ -742,11 +752,46 @@ const loadAllDataFromUpstash = async () => {
       
       if (allData.settings) {
         if (allData.settings.apiConfig) {
-          localStorage.setItem('api-config', JSON.stringify(allData.settings.apiConfig))
+          // 保存到正确的 localStorage 键
+          if (allData.settings.apiConfig.official) {
+            localStorage.setItem('officialApiConfig', JSON.stringify(allData.settings.apiConfig.official))
+          }
+          if (allData.settings.apiConfig.custom) {
+            localStorage.setItem('customApiConfig', JSON.stringify(allData.settings.apiConfig.custom))
+          }
+          if (allData.settings.apiConfig.configType) {
+            localStorage.setItem('apiConfigType', allData.settings.apiConfig.configType)
+          }
           importCount++
+          
+          // 同时更新 Pinia store 中的 API 配置
+          try {
+            const novelStore = useNovelStore()
+            if (allData.settings.apiConfig.official) {
+              novelStore.officialApiConfig = { ...novelStore.officialApiConfig, ...allData.settings.apiConfig.official }
+            }
+            if (allData.settings.apiConfig.custom) {
+              novelStore.customApiConfig = { ...novelStore.customApiConfig, ...allData.settings.apiConfig.custom }
+            }
+            if (allData.settings.apiConfig.configType) {
+              novelStore.currentConfigType = allData.settings.apiConfig.configType
+            }
+            // 更新 API 配置状态
+            const currentConfig = novelStore.getCurrentApiConfig()
+            novelStore.isApiConfigured = !!currentConfig.apiKey
+            console.log('Pinia store API 配置已更新')
+          } catch (storeError) {
+            console.error('更新 Pinia store 失败:', storeError)
+          }
         }
         if (allData.settings.tokenUsage) {
           localStorage.setItem('token-usage', JSON.stringify(allData.settings.tokenUsage))
+          importCount++
+        }
+        
+        // 恢复自定义模型列表
+        if (allData.settings.customModels) {
+          localStorage.setItem('customModels', JSON.stringify(allData.settings.customModels))
           importCount++
         }
       }
@@ -755,10 +800,7 @@ const loadAllDataFromUpstash = async () => {
       calculateDataStats()
       
       if (importCount > 0) {
-        ElMessage.success(`成功从Upstash恢复 ${importCount} 项数据`)
-        setTimeout(() => {
-          location.reload()
-        }, 1000)
+        ElMessage.success(`成功从Upstash恢复 ${importCount} 项数据，请刷新页面以应用更改`)
       } else {
         ElMessage.warning('未找到匹配的数据进行恢复')
       }
