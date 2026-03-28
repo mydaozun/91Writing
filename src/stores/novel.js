@@ -124,8 +124,116 @@ export const useNovelStore = defineStore('novel', () => {
     }
   }
   
+  // 自动保存相关
+  let autoSaveInterval = null
+  let lastSavedTime = null
+  
+  // 初始化时自动加载数据
+  const initializeDataFromUpstash = async () => {
+    if (isUpstashConfigured.value) {
+      console.log('尝试从Upstash加载数据...')
+      try {
+        // 加载API配置
+        const savedApiConfig = await upstashService.getUserConfig()
+        if (savedApiConfig) {
+          console.log('从Upstash加载API配置成功')
+          if (savedApiConfig.official) {
+            officialApiConfig.value = { ...officialApiConfig.value, ...savedApiConfig.official }
+          }
+          if (savedApiConfig.custom) {
+            customApiConfig.value = { ...customApiConfig.value, ...savedApiConfig.custom }
+          }
+          if (savedApiConfig.configType) {
+            currentConfigType.value = savedApiConfig.configType
+          }
+          const currentConfig = getCurrentApiConfig()
+          isApiConfigured.value = !!currentConfig.apiKey
+          apiService.updateConfig(currentConfig)
+        }
+        
+        // 加载语料库
+        const savedCorpus = await upstashService.getCorpus()
+        if (savedCorpus) {
+          console.log('从Upstash加载语料库成功')
+          corpus.value = savedCorpus
+        }
+        
+        // 加载人物设定
+        const savedCharacters = await upstashService.getCharacters()
+        if (savedCharacters) {
+          console.log('从Upstash加载人物设定成功')
+          characters.value = savedCharacters
+        }
+        
+        // 加载世界观设定
+        const savedWorldSettings = await upstashService.getWorldSettings()
+        if (savedWorldSettings) {
+          console.log('从Upstash加载世界观设定成功')
+          worldSettings.value = savedWorldSettings
+        }
+        
+      } catch (error) {
+        console.error('从Upstash加载数据失败:', error)
+      }
+    }
+  }
+  
+  // 自动保存所有数据
+  const autoSaveAllData = async () => {
+    if (isUpstashConfigured.value) {
+      console.log('执行自动保存...')
+      try {
+        // 保存API配置
+        const apiConfigData = {
+          official: officialApiConfig.value,
+          custom: customApiConfig.value,
+          configType: currentConfigType.value
+        }
+        await upstashService.saveUserConfig(apiConfigData)
+        
+        // 保存语料库
+        await upstashService.saveCorpus(corpus.value)
+        
+        // 保存人物设定
+        await upstashService.saveCharacters(characters.value)
+        
+        // 保存世界观设定
+        await upstashService.saveWorldSettings(worldSettings.value)
+        
+        // 保存小说数据（如果有内容）
+        if (currentNovel.value.trim() || outline.value.trim() || chapters.value.length > 0) {
+          const novelId = 'current'
+          await saveNovelToUpstash(novelId)
+        }
+        
+        lastSavedTime = new Date().toISOString()
+        console.log('自动保存成功，时间:', lastSavedTime)
+      } catch (error) {
+        console.error('自动保存失败:', error)
+      }
+    }
+  }
+  
+  // 启动自动保存
+  const startAutoSave = () => {
+    // 清除现有定时器
+    if (autoSaveInterval) {
+      clearInterval(autoSaveInterval)
+    }
+    
+    // 每5分钟自动保存一次
+    autoSaveInterval = setInterval(autoSaveAllData, 5 * 60 * 1000)
+    console.log('自动保存已启动，每5分钟保存一次')
+  }
+  
   // 立即执行初始化
   initializeApiConfig()
+  
+  // 初始化后尝试从Upstash加载数据
+  setTimeout(initializeDataFromUpstash, 1000)
+  
+  // 启动自动保存
+  startAutoSave()
   
   // 摘要功能
   const articleSummary = ref('')
