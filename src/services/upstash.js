@@ -54,12 +54,10 @@ class UpstashService {
 
   // 生成用户唯一键前缀
   getUserKeyPrefix() {
-    // 可以使用用户ID或其他唯一标识
-    // 这里使用一个固定前缀，实际应用中应该使用用户唯一标识
     return 'user:'
   }
 
-  // 保存数据
+  // 保存数据 - 使用Upstash REST API格式
   async set(key, value, expiration = null) {
     if (!this.initialized) {
       console.warn('Upstash未初始化，无法保存数据')
@@ -68,25 +66,20 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      const body = {
-        key: fullKey,
-        value: value
-      }
       
+      // 使用JSON数组格式发送命令
+      const command = ['SET', fullKey, JSON.stringify(value)]
       if (expiration) {
-        body.ex = expiration
+        command.push('EX', expiration)
       }
       
-      // 确保URL以/redis结尾
-      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
-      
-      const response = await fetch(`${baseUrl}/set`, {
+      const response = await fetch(this.config.url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(command)
       })
       
       if (!response.ok) {
@@ -94,6 +87,8 @@ class UpstashService {
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`)
       }
       
+      const data = await response.json()
+      console.log('Upstash SET成功:', data)
       return true
     } catch (error) {
       console.error('保存数据失败:', error)
@@ -110,10 +105,8 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      // 确保URL以/redis结尾
-      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
       
-      const response = await fetch(`${baseUrl}/get/${encodeURIComponent(fullKey)}`, {
+      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(fullKey)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -126,7 +119,14 @@ class UpstashService {
       }
       
       const data = await response.json()
-      return data.result
+      if (data.result) {
+        try {
+          return JSON.parse(data.result)
+        } catch {
+          return data.result
+        }
+      }
+      return null
     } catch (error) {
       console.error('获取数据失败:', error)
       return null
@@ -142,11 +142,9 @@ class UpstashService {
 
     try {
       const fullKey = this.getUserKeyPrefix() + key
-      // 确保URL以/redis结尾
-      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
       
-      const response = await fetch(`${baseUrl}/del/${encodeURIComponent(fullKey)}`, {
-        method: 'DELETE',
+      const response = await fetch(`${this.config.url}/del/${encodeURIComponent(fullKey)}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
         }
@@ -166,7 +164,7 @@ class UpstashService {
 
   // 保存小说数据
   async saveNovel(novelId, novelData) {
-    return await this.set(`novel:${novelId}`, novelData, 60 * 60 * 24 * 30) // 30天过期
+    return await this.set(`novel:${novelId}`, novelData, 60 * 60 * 24 * 30)
   }
 
   // 获取小说数据
@@ -186,7 +184,7 @@ class UpstashService {
 
   // 保存用户配置
   async saveUserConfig(config) {
-    return await this.set('user:config', config, 60 * 60 * 24 * 365) // 1年过期
+    return await this.set('user:config', config, 60 * 60 * 24 * 365)
   }
 
   // 获取用户配置
@@ -233,10 +231,8 @@ class UpstashService {
 
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
-      // 确保URL以/redis结尾
-      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
       
-      const response = await fetch(`${baseUrl}/get/${encodeURIComponent(listKey)}`, {
+      const response = await fetch(`${this.config.url}/get/${encodeURIComponent(listKey)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
@@ -275,11 +271,9 @@ class UpstashService {
 
     try {
       const listKey = this.getUserKeyPrefix() + 'novels:list'
-      // 确保URL以/redis结尾
-      const baseUrl = this.config.url.endsWith('/redis') ? this.config.url : `${this.config.url}/redis`
       
-      const response = await fetch(`${baseUrl}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
-        method: 'POST',
+      const response = await fetch(`${this.config.url}/sadd/${encodeURIComponent(listKey)}/${encodeURIComponent(novelId)}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.config.token}`
         }
