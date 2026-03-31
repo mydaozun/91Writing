@@ -135,7 +135,7 @@
                 <div class="card-header">
                   <span>📖 章节管理</span>
                   <el-button 
-                    type="success" 
+                    输入="success" 
                     size="small" 
                     @click="generateChapterContent"
                     :loading="isGeneratingChapter"
@@ -847,7 +847,12 @@ const handleCreated = (editor) => {
 }
 
 onMounted(() => {
-  // 初始化
+  // 阻止自动显示公告
+  if (!localStorage.getItem('lastReadAnnouncementVersion')) {
+    // 标记最新公告为已读
+    const latestAnnouncement = getLatestAnnouncement()
+    localStorage.setItem('lastReadAnnouncementVersion', latestAnnouncement.version)
+  }
 })
 
 onBeforeUnmount(() => {

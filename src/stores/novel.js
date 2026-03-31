@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiService from '../services/api.js'
+import upstashService from '../services/upstash.js'
 
 export const useNovelStore = defineStore('novel', () => {
   // 状态
@@ -48,6 +49,13 @@ export const useNovelStore = defineStore('novel', () => {
   const currentConfigType = ref('official') // 'official' 或 'custom'
   const isApiConfigured = ref(false)
   
+  // Upstash配置
+  const upstashConfig = ref({
+    url: '',
+    token: ''
+  })
+  const isUpstashConfigured = ref(false)
+  
   // 获取当前活动的API配置
   const getCurrentApiConfig = () => {
     return currentConfigType.value === 'official' ? officialApiConfig.value : customApiConfig.value
@@ -84,13 +92,149 @@ export const useNovelStore = defineStore('novel', () => {
       isApiConfigured.value = !!currentConfig.apiKey
       apiService.updateConfig(currentConfig)
       
+      // 初始化Upstash配置
+      // 优先从环境变量获取（Vercel部署）
+      // Vite要求环境变量以VITE_前缀开头才能在客户端访问
+      const envUrl = import.meta.env.VITE_UPSTASH_URL
+      const envToken = import.meta.env.VITE_UPSTASH_TOKEN
+      
+      if (envUrl && envToken) {
+        console.log('从环境变量加载Upstash配置')
+        const config = {
+          url: envUrl,
+          token: envToken
+        }
+        upstashConfig.value = config
+        isUpstashConfigured.value = true
+        upstashService.saveConfig(config)
+      } else {
+        // 从localStorage获取（本地开发）
+        const savedUpstash = localStorage.getItem('upstashConfig')
+        if (savedUpstash) {
+          const config = JSON.parse(savedUpstash)
+          upstashConfig.value = config
+          isUpstashConfigured.value = !!config.url && !!config.token
+          if (isUpstashConfigured.value) {
+            upstashService.saveConfig(config)
+          }
+        }
+      }
+      
     } catch (error) {
       console.error('初始化API配置失败:', error)
     }
   }
   
+  // 自动保存相关
+  let autoSaveInterval = null
+  let lastSavedTime = null
+  
+  // 初始化时自动加载数据
+  const initializeDataFromUpstash = async () => {
+    if (isUpstashConfigured.value) {
+      console.log('尝试从Upstash加载数据...')
+      try {
+        // 加载API配置
+        const savedApiConfig = await upstashService.getUserConfig()
+        if (savedApiConfig) {
+          console.log('从Upstash加载API配置成功')
+          if (savedApiConfig.official) {
+            officialApiConfig.value = { ...officialApiConfig.value, ...savedApiConfig.official }
+          }
+          if (savedApiConfig.custom) {
+            customApiConfig.value = { ...customApiConfig.value, ...savedApiConfig.custom }
+          }
+          if (savedApiConfig.configType) {
+            currentConfigType.value = savedApiConfig.configType
+          }
+          const currentConfig = getCurrentApiConfig()
+          isApiConfigured.value = !!currentConfig.apiKey
+          apiService.updateConfig(currentConfig)
+        }
+        
+        // 加载语料库
+        const savedCorpus = await upstashService.getCorpus()
+        if (savedCorpus) {
+          console.log('从Upstash加载语料库成功')
+          corpus.value = savedCorpus
+        }
+        
+        // 加载人物设定
+        const savedCharacters = await upstashService.getCharacters()
+        if (savedCharacters) {
+          console.log('从Upstash加载人物设定成功')
+          characters.value = savedCharacters
+        }
+        
+        // 加载世界观设定
+        const savedWorldSettings = await upstashService.getWorldSettings()
+        if (savedWorldSettings) {
+          console.log('从Upstash加载世界观设定成功')
+          worldSettings.value = savedWorldSettings
+        }
+        
+      } catch (error) {
+        console.error('从Upstash加载数据失败:', error)
+      }
+    }
+  }
+  
+  // 自动保存所有数据
+  const autoSaveAllData = async () => {
+    if (isUpstashConfigured.value) {
+      console.log('执行自动保存...')
+      try {
+        // 保存API配置
+        const apiConfigData = {
+          official: officialApiConfig.value,
+          custom: customApiConfig.value,
+          configType: currentConfigType.value
+        }
+        await upstashService.saveUserConfig(apiConfigData)
+        
+        // 保存语料库
+        await upstashService.saveCorpus(corpus.value)
+        
+        // 保存人物设定
+        await upstashService.saveCharacters(characters.value)
+        
+        // 保存世界观设定
+        await upstashService.saveWorldSettings(worldSettings.value)
+        
+        // 保存小说数据（如果有内容）
+        if (currentNovel.value.trim() || outline.value.trim() || chapters.value.length > 0) {
+          const novelId = 'current'
+          await saveNovelToUpstash(novelId)
+        }
+        
+        lastSavedTime = new Date().toISOString()
+        console.log('自动保存成功，时间:', lastSavedTime)
+      } catch (error) {
+        console.error('自动保存失败:', error)
+      }
+    }
+  }
+  
+  // 启动自动保存
+  const startAutoSave = () => {
+    // 清除现有定时器
+    if (autoSaveInterval) {
+      clearInterval(autoSaveInterval)
+    }
+    
+    // 每5分钟自动保存一次
+    autoSaveInterval = setInterval(autoSaveAllData, 5 * 60 * 1000)
+    console.log('自动保存已启动，每5分钟保存一次')
+  }
+  
   // 立即执行初始化
   initializeApiConfig()
+  
+  // 初始化后尝试从Upstash加载数据
+  setTimeout(initializeDataFromUpstash, 1000)
+  
+  // 启动自动保存
+  startAutoSave()
   
   // 摘要功能
   const articleSummary = ref('')
@@ -345,6 +489,88 @@ export const useNovelStore = defineStore('novel', () => {
     const currentConfig = getCurrentApiConfig()
     apiService.updateConfig(currentConfig)
     isApiConfigured.value = !!currentConfig.apiKey
+  }
+  
+  // 更新Upstash配置
+  const updateUpstashConfig = (config) => {
+    upstashConfig.value = config
+    isUpstashConfigured.value = !!config.url && !!config.token
+    upstashService.saveConfig(config)
+  }
+  
+  // 保存小说到Upstash
+  const saveNovelToUpstash = async (novelId) => {
+    if (!isUpstashConfigured.value) {
+      console.warn('Upstash未配置，无法保存小说')
+      return false
+    }
+    
+    const novelData = {
+      content: currentNovel.value,
+      outline: outline.value,
+      chapters: chapters.value,
+      characters: characters.value,
+      worldSettings: worldSettings.value,
+      createdAt: new Date().toISOString()
+    }
+    
+    const saved = await upstashService.saveNovel(novelId, novelData)
+    if (saved) {
+      await upstashService.addNovelToList(novelId)
+    }
+    return saved
+  }
+  
+  // 从Upstash加载小说
+  const loadNovelFromUpstash = async (novelId) => {
+    if (!isUpstashConfigured.value) {
+      console.warn('Upstash未配置，无法加载小说')
+      return false
+    }
+    
+    const novelData = await upstashService.getNovel(novelId)
+    if (novelData) {
+      currentNovel.value = novelData.content || ''
+      outline.value = novelData.outline || ''
+      chapters.value = novelData.chapters || []
+      characters.value = novelData.characters || []
+      worldSettings.value = novelData.worldSettings || []
+      return true
+    }
+    return false
+  }
+  
+  // 保存语料库到Upstash
+  const saveCorpusToUpstash = async () => {
+    if (!isUpstashConfigured.value) {
+      console.warn('Upstash未配置，无法保存语料库')
+      return false
+    }
+    return await upstashService.saveCorpus(corpus.value)
+  }
+  
+  // 从Upstash加载语料库
+  const loadCorpusFromUpstash = async () => {
+    if (!isUpstashConfigured.value) {
+      console.warn('Upstash未配置，无法加载语料库')
+      return false
+    }
+    
+    const savedCorpus = await upstashService.getCorpus()
+    if (savedCorpus) {
+      corpus.value = savedCorpus
+      return true
+    }
+    return false
+  }
+  
+  // 列出所有小说
+  const listNovelsFromUpstash = async () => {
+    if (!isUpstashConfigured.value) {
+      console.warn('Upstash未配置，无法列出小说')
+      return []
+    }
+    return await upstashService.listNovels()
   }
 
   const validateApiKey = async () => {
@@ -783,6 +1009,8 @@ export const useNovelStore = defineStore('novel', () => {
     isGeneratingSummary,
     writingAdvice,
     isGeneratingAdvice,
+    upstashConfig,
+    isUpstashConfigured,
     
     // 计算属性
     wordCount,
@@ -836,6 +1064,14 @@ export const useNovelStore = defineStore('novel', () => {
     importCorpus,
     setGeneratingSummary,
     setArticleSummary,
-    generateContent
+    generateContent,
+    
+    // Upstash相关方法
+    updateUpstashConfig,
+    saveNovelToUpstash,
+    loadNovelFromUpstash,
+    saveCorpusToUpstash,
+    loadCorpusFromUpstash,
+    listNovelsFromUpstash
   }
 })

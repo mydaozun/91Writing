@@ -9,15 +9,12 @@
 
 <img src=".\image\微信截图_20250618183833.png" />
 
-## 🎉 在线演示
-
-- 🌐 **演示地址**: https://xiezuo.91hub.vip
-- 📱 **支持设备**: 浏览器、PC
-
-
-### 🎬 视频教程
-- [API配置教程](https://www.bilibili.com/video/BV1keKgzaER2)
-- [本地部署教程](https://www.bilibili.com/video/BV1AYKgzAEne)
+## 🎉 在线部署
+- fork项目
+- [导入项目](https://vercel.com/)
+- 添加环境变量
+  - VITE_UPSTASH_URL=gQAAAAAAAS125416516154615165OTExNjc4MzA3YTRhZHAxNzQ5NjI
+  - VITE_UPSTASH_TOKEN=https://one-man-123456.upstash.io
 
 ## ✨ 核心特色
 
